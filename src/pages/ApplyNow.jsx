@@ -1,5 +1,5 @@
 // src/components/ApplyNow.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import CustomerAIChat from "@/components/CustomerAIChat";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -21,45 +21,59 @@ const ApplyNow = () => {
     isSriLankanPassportHolder: "",
     applyingFor: "",
   });
+
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [vacancyTypes, setVacancyTypes] = useState([]);
   const [isVerified, setIsVerified] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [turnstileError, setTurnstileError] = useState(false);
 
-  // Define Turnstile success callback globally and load script
+  const containerRef = useRef(null);
+
+  // Load Turnstile script
   useEffect(() => {
-    // This function must be globally accessible
-    window.onTurnstileSuccess = (token) => {
-      console.log("✅ Turnstile verification successful. Token:", token);
-      setIsVerified(true);
-      setShowForm(true); // Unlock the form
-    };
+    if (window.turnstile) {
+      setScriptLoaded(true);
+      return;
+    }
 
-    // Load Turnstile script
     const script = document.createElement("script");
     script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js";
     script.async = true;
     script.defer = true;
 
-    script.onload = () => {
-      console.log(".cloudflare turnstile script loaded");
-    };
-
-    script.onerror = () => {
-      console.error("Failed to load Turnstile script");
-    };
+    script.onload = () => setScriptLoaded(true);
+    script.onerror = () => setTurnstileError(true);
 
     document.body.appendChild(script);
 
-    // Cleanup
     return () => {
-      document.body.removeChild(script);
-      delete window.onTurnstileSuccess;
+      if (document.body.contains(script)) document.body.removeChild(script);
     };
   }, []);
 
-  // Fetch job types only after verification
+  // Render Turnstile widget
+  useEffect(() => {
+    if (!scriptLoaded || showForm || turnstileError) return;
+
+    if (containerRef.current) {
+      containerRef.current.innerHTML = "";
+      window.turnstile.render(containerRef.current, {
+        sitekey: import.meta.env.VITE_TURNSTILE_SITE_KEY,
+        callback: () => {
+          setIsVerified(true);
+          setShowForm(true); // unlock the form
+        },
+        "expired-callback": () => setIsVerified(false),
+        "error-callback": () => setTurnstileError(true),
+        theme: "light",
+      });
+    }
+  }, [scriptLoaded, showForm, turnstileError]);
+
+  // Fetch vacancies after verification
   useEffect(() => {
     if (!showForm) return;
 
@@ -67,51 +81,36 @@ const ApplyNow = () => {
       try {
         const res = await fetch(`${API_URL}/api/applications/vacancies`);
         const data = await res.json();
-        if (data.success) {
-          setVacancyTypes(data.data);
-        } else {
-          console.error("Failed to load vacancies:", data.message);
-        }
+        if (data.success) setVacancyTypes(data.data);
       } catch (err) {
-        console.error("Network error loading vacancies:", err);
+        console.error("Failed to load vacancies:", err);
       }
     };
 
     loadVacancyTypes();
   }, [showForm]);
 
-  // DOB → Age Calculation
+  // DOB → Age calculation
   const handleDOBChange = (e) => {
     const dob = e.target.value;
     setFormData((prev) => ({ ...prev, dob }));
-    if (dob) {
-      const birthDate = new Date(dob);
-      const today = new Date();
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-      }
-      setFormData((prev) => ({ ...prev, age }));
-    }
+    if (!dob) return;
+
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+    setFormData((prev) => ({ ...prev, age }));
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isVerified) return alert("❌ Please complete the verification first.");
 
-    const required = [
-      "fullName",
-      "mobile",
-      "addressLine1",
-      "city",
-      "applyingFor",
-      "gender",
-    ];
-
+    const required = ["fullName", "mobile", "addressLine1", "city", "applyingFor", "gender"];
     for (let field of required) {
       if (!formData[field]) {
         alert(`Please fill in ${field.replace(/([A-Z])/g, " $1").toLowerCase()}`);
@@ -152,7 +151,6 @@ const ApplyNow = () => {
         alert(error.message || "Failed to submit application.");
       }
     } catch (err) {
-      console.error("Submit error:", err);
       alert("Network error. Please try again.");
     } finally {
       setLoading(false);
@@ -169,13 +167,11 @@ const ApplyNow = () => {
         backgroundPosition: "center",
       }}
     >
-      {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-blue-500/20 to-black/50"></div>
 
       <div className="relative max-w-4xl mx-auto px-6 lg:px-10">
         <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 p-8 md:p-12 backdrop-blur-sm">
           {!showForm ? (
-            // 🔐 Turnstile Gate: Only shown before verification
             <div className="text-center py-12">
               <h2 className="text-3xl font-bold text-gray-800 mb-4">
                 Verify You're Not a Robot
@@ -183,21 +179,18 @@ const ApplyNow = () => {
               <p className="text-gray-600 mb-8 max-w-md mx-auto">
                 Please complete the security check to access the job application form.
               </p>
-              <div
-                className="cf-turnstile mx-auto"
-                data-sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-                data-callback="onTurnstileSuccess"
-                data-theme="light"
-                data-action="apply_now_verification"
-              ></div>
+              <div ref={containerRef} className="mx-auto"></div>
+              {turnstileError && (
+                <p className="text-red-500 mt-4">
+                  ❌ Failed to load verification widget. Please refresh.
+                </p>
+              )}
             </div>
           ) : success ? (
-            // ✅ Success Message
             <div className="bg-green-100 text-green-800 p-6 rounded-lg text-center text-lg font-medium shadow-sm">
               ✅ Thank you! Your application has been submitted successfully.
             </div>
           ) : (
-            // 📝 Application Form
             <>
               <h2 className="text-4xl font-extrabold text-blue-700 mb-3 text-center">
                 Apply Now
