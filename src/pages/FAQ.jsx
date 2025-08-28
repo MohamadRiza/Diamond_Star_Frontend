@@ -1,6 +1,7 @@
 // src/components/FAQ.jsx
 import CustomerAIChat from "@/components/CustomerAIChat";
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 
 const FAQ = () => {
   const [openIndex, setOpenIndex] = useState(null);
@@ -146,12 +147,17 @@ const FAQ = () => {
         <p className="text-gray-600 mb-8 max-w-md mx-auto">
           Our support team is ready to assist you with personalized guidance.
         </p>
-        <button
+        {/* <button
           className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 ease-in-out text-lg cursor-pointer"
           onClick={() => (window.location.href = "/contact")}
         >
           Contact Us Now
-        </button>
+        </button> */}
+
+        <Link to="/contact" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 ease-in-out text-lg cursor-pointer">
+          Contact Us Now
+        </Link>
+
       </div>
 
       {/* AI Chat Widget */}
