@@ -1,11 +1,10 @@
-import React, { useRef } from "react";
+import React from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import "swiper/css";
-import { Autoplay } from "swiper/modules";
+import "swiper/css/free-mode";
+import { Autoplay, FreeMode } from "swiper/modules";
 
 const WhereWeSendEmployees = () => {
-  const swiperRef = useRef(null);
-
   const countries = [
     { name: "Bahrain", flag: "🇧🇭", capital: "Manama" },
     { name: "Cyprus", flag: "🇨🇾", capital: "Nicosia" },
@@ -20,9 +19,6 @@ const WhereWeSendEmployees = () => {
     { name: "Qatar", flag: "🇶🇦", capital: "Doha" },
     { name: "Lebanon", flag: "🇱🇧", capital: "Beirut" },
   ];
-
-  // Duplicate countries for smooth infinite scroll
-  const duplicatedCountries = [...countries, ...countries];
 
   return (
     <section
@@ -53,29 +49,24 @@ const WhereWeSendEmployees = () => {
       {/* Continuous Scrolling Slider */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">
         <Swiper
-          modules={[Autoplay]}
-          onSwiper={(swiper) => (swiperRef.current = swiper)}
+          modules={[Autoplay, FreeMode]}
+          freeMode={true}
           loop={true}
-          speed={8000} // higher = slower smooth scroll
+          speed={6000} // controls smooth scroll speed (higher = slower)
           autoplay={{
             delay: 0, // no pause between slides
-            disableOnInteraction: false, // continue after click/drag
-            pauseOnMouseEnter: false, // don't stop on hover
+            disableOnInteraction: false,
           }}
           slidesPerView={1.5}
           spaceBetween={16}
-          allowTouchMove={false} // disables swipe for smooth continuous scroll
           breakpoints={{
             640: { slidesPerView: 3, spaceBetween: 20 },
             1024: { slidesPerView: 4, spaceBetween: 24 },
           }}
         >
-          {duplicatedCountries.map((country, index) => (
+          {countries.map((country, index) => (
             <SwiperSlide key={index}>
-              <div
-                onClick={() => swiperRef.current?.autoplay.start()} // ensure autoplay continues on click
-                className="p-6 sm:p-8 bg-white/10 backdrop-blur-lg rounded-3xl border border-white/20 text-center transition-transform hover:scale-105 hover:bg-white/20 hover:shadow-xl"
-              >
+              <div className="p-6 sm:p-8 bg-white/10 backdrop-blur-lg rounded-3xl border border-white/20 text-center transition-transform hover:scale-105 hover:bg-white/20 hover:shadow-xl">
                 <div className="text-5xl sm:text-6xl">{country.flag}</div>
                 <h3 className="mt-4 text-xl sm:text-2xl font-bold text-white transition-colors hover:text-blue-400">
                   {country.name}
